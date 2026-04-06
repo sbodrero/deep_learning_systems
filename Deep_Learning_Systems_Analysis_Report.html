@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Deep Learning Systems Analysis Report — Fashion-MNIST CNN Experiment</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: Georgia, 'Times New Roman', serif;
+    font-size: 11.5pt;
+    line-height: 1.7;
+    color: #1a1a1a;
+    background: #fff;
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 40px 50px;
+  }
+  h1 { font-size: 18pt; margin-bottom: 4px; line-height: 1.3; }
+  h2 { font-size: 13.5pt; margin: 28px 0 8px; border-bottom: 1.5px solid #444; padding-bottom: 4px; }
+  h3 { font-size: 11.5pt; font-style: italic; margin: 18px 0 6px; }
+  p { margin-bottom: 12px; }
+  ul, ol { margin: 6px 0 12px 24px; }
+  li { margin: 4px 0; }
+  .meta { font-size: 10pt; color: #555; margin-bottom: 30px; line-height: 1.6; }
+  .meta span { display: block; }
+  .toc { background: #f7f7f7; border: 1px solid #ddd; padding: 16px 22px; margin: 0 0 30px; }
+  .toc h3 { font-size: 11pt; margin: 0 0 8px; font-style: normal; font-weight: bold; }
+  .toc ol { margin-left: 20px; }
+  .toc li { margin: 3px 0; font-size: 10.5pt; }
+  .toc a { color: #24527a; text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 16px; font-size: 10.5pt; }
+  th { background: #e8e8e8; padding: 6px 10px; text-align: left; border: 1px solid #bbb; }
+  td { padding: 5px 10px; border: 1px solid #ccc; }
+  tr:nth-child(even) td { background: #f8f8f8; }
+  .stat-box { background: #f0f4f8; border-left: 4px solid #24527a; padding: 12px 16px; margin: 14px 0; font-size: 10.5pt; }
+  .stat-box strong { display: block; margin-bottom: 4px; font-size: 11pt; }
+  .highlight { background: #fff8e1; padding: 2px 4px; border-radius: 2px; }
+  .references ol { margin-left: 22px; }
+  .references li { margin-bottom: 10px; font-size: 10.5pt; }
+  @media print {
+    body { padding: 20px 30px; }
+    .toc { break-after: avoid; }
+    h2 { break-before: avoid; break-after: avoid; }
+  }
+</style>
+</head>
+<body>
+
+<h1>Deep Learning Systems Analysis Report<br>CNN Image Classification on Fashion-MNIST</h1>
+<div class="meta">
+  <span><strong>Author:</strong> Sébastien Bodrero</span>
+  <span><strong>Programme:</strong> MSc in Artificial Intelligence — Woolf University / Udacity</span>
+  <span><strong>Module 4:</strong> Deep Learning Systems (Project 4)</span>
+  <span><strong>Date:</strong> April 2026</span>
+</div>
+
+<div class="toc">
+  <h3>Table of Contents</h3>
+  <ol>
+    <li><a href="#overview">Report Overview</a></li>
+    <li><a href="#dataset">Dataset and Task Description</a></li>
+    <li><a href="#architecture">Model Architecture and Design Decisions</a></li>
+    <li><a href="#experiment">Experimental Comparison</a></li>
+    <li><a href="#results">Results and Interpretation</a></li>
+    <li><a href="#limitations">Limitations and Risks</a></li>
+    <li><a href="#ethics">Ethical and Responsible Use</a></li>
+    <li><a href="#future">Future Improvements</a></li>
+    <li><a href="#references">References</a></li>
+  </ol>
+</div>
+
+<!-- ================================================================ -->
+<h2 id="overview">1. Report Overview</h2>
+
+<p>This report documents a controlled deep learning experiment for image classification using the Fashion-MNIST dataset — 70,000 grayscale 28×28 images of clothing items across 10 categories. Two Convolutional Neural Network (CNN) configurations were implemented in PyTorch and trained for 10 epochs each: a baseline SimpleCNN with no regularization, and an experimental variant adding a single Dropout layer (p = 0.5) to the classifier. The experiment was designed to isolate the effect of dropout regularization on generalization performance. Both models were evaluated on the held-out 10,000-image test set, and the experimental model achieved 92.85% test accuracy versus 91.55% for the baseline — a +1.30 percentage point improvement that demonstrates dropout's effectiveness in reducing mild overfitting even in a shallow CNN. The dataset is publicly available via <code>torchvision.datasets.FashionMNIST</code> and is reproduced from Xiao et al. (2017) (see reference 4).</p>
+
+<!-- ================================================================ -->
+<h2 id="dataset">2. Dataset and Task Description</h2>
+
+<p>The <strong>Fashion-MNIST</strong> dataset was created by Zalando Research as a more challenging drop-in replacement for the original MNIST handwritten digit dataset. It contains <strong>70,000 grayscale images</strong> (60,000 training, 10,000 test) of size 28×28 pixels, each labelled with one of 10 clothing categories:</p>
+
+<table>
+  <thead><tr><th>Class ID</th><th>Category</th><th>Class ID</th><th>Category</th></tr></thead>
+  <tbody>
+    <tr><td>0</td><td>T-shirt/top</td><td>5</td><td>Sandal</td></tr>
+    <tr><td>1</td><td>Trouser</td><td>6</td><td>Shirt</td></tr>
+    <tr><td>2</td><td>Pullover</td><td>7</td><td>Sneaker</td></tr>
+    <tr><td>3</td><td>Dress</td><td>8</td><td>Bag</td></tr>
+    <tr><td>4</td><td>Coat</td><td>9</td><td>Ankle boot</td></tr>
+  </tbody>
+</table>
+
+<p>The task is <strong>10-class image classification</strong> — a supervised deep learning task appropriate for Convolutional Neural Networks. CNNs are the canonical choice because they exploit the spatial structure of image data through learned local filters, sharing weights across spatial positions to capture translation-invariant features efficiently (LeCun et al., 1998). The dataset is perfectly balanced (each class contains exactly 6,000 training and 1,000 test images), which means accuracy is an appropriate primary metric alongside per-class analysis.</p>
+
+<p><strong>Preprocessing:</strong> Images were normalized using the Fashion-MNIST population statistics (mean = 0.2860, std = 0.3530), converting pixel values from [0, 1] to a zero-centred distribution. Normalization stabilizes gradient magnitudes during backpropagation and improves convergence speed. The dataset was not augmented (random flips, crops, etc.) in this baseline experiment — augmentation is identified as a future improvement in Section 8.</p>
+
+<p><strong>Dataset access:</strong> The dataset is automatically downloaded by <code>torchvision.datasets.FashionMNIST(root='./data', download=True)</code> on first run. No manual download is required.</p>
+
+<!-- ================================================================ -->
+<h2 id="architecture">3. Model Architecture and Design Decisions</h2>
+
+<p>The <strong>baseline SimpleCNN</strong> follows the standard convolutional feature extractor + linear classifier pattern:</p>
+
+<table>
+  <thead><tr><th>Layer</th><th>Configuration</th><th>Output shape</th><th>Parameters</th></tr></thead>
+  <tbody>
+    <tr><td>Input</td><td>Greyscale image</td><td>1 × 28 × 28</td><td>—</td></tr>
+    <tr><td>Conv1 + ReLU</td><td>1→32 filters, 3×3, padding=1</td><td>32 × 28 × 28</td><td>320</td></tr>
+    <tr><td>MaxPool</td><td>2×2, stride=2</td><td>32 × 14 × 14</td><td>—</td></tr>
+    <tr><td>Conv2 + ReLU</td><td>32→64 filters, 3×3, padding=1</td><td>64 × 14 × 14</td><td>18,496</td></tr>
+    <tr><td>MaxPool</td><td>2×2, stride=2</td><td>64 × 7 × 7</td><td>—</td></tr>
+    <tr><td>Flatten</td><td>—</td><td>3,136</td><td>—</td></tr>
+    <tr><td>FC1 + ReLU</td><td>3,136→256</td><td>256</td><td>802,816 + 256</td></tr>
+    <tr><td>FC2 (logits)</td><td>256→10</td><td>10</td><td>2,560 + 10</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Total trainable parameters: ~824,458</strong></p>
+
+<p><strong>Design rationale:</strong></p>
+<ul>
+  <li><strong>Two convolutional blocks:</strong> 28×28 images after two 2×2 max-pool operations have 7×7 spatial extent. A third pooling stage would reduce this to 3×3 — too small for the filters to capture meaningful structure. Two blocks are therefore appropriate for this input size.</li>
+  <li><strong>Filter counts 32→64:</strong> A common doubling pattern that increases representational capacity at each block while the spatial footprint shrinks. This balances depth and parameter efficiency.</li>
+  <li><strong>ReLU activations:</strong> Preferred over sigmoid or tanh because they avoid vanishing gradients for positive activations and are computationally inexpensive.</li>
+  <li><strong>Adam optimizer (lr=0.001):</strong> Adam adapts learning rates per parameter using first and second moment estimates, making it robust to hyperparameter choices and widely used as a default for deep learning tasks.</li>
+  <li><strong>CrossEntropyLoss:</strong> The standard loss for multi-class classification with integer class labels. It combines a log-softmax activation with negative log-likelihood, numerically stable and appropriate for the 10-class output.</li>
+</ul>
+
+<!-- ================================================================ -->
+<h2 id="experiment">4. Experimental Comparison</h2>
+
+<p><strong>Experimental change: addition of <code>nn.Dropout(p=0.5)</code> after the ReLU activation of FC1.</strong></p>
+
+<table>
+  <thead><tr><th>Component</th><th>Baseline SimpleCNN</th><th>CNN + Dropout</th></tr></thead>
+  <tbody>
+    <tr><td>Conv layers</td><td>2 (unchanged)</td><td>2 (unchanged)</td></tr>
+    <tr><td>FC1</td><td>3,136→256, ReLU</td><td>3,136→256, ReLU</td></tr>
+    <tr><td><strong>Dropout</strong></td><td><strong>None</strong></td><td><strong>Dropout(p=0.5)</strong></td></tr>
+    <tr><td>FC2</td><td>256→10</td><td>256→10</td></tr>
+    <tr><td>Optimizer</td><td>Adam, lr=0.001</td><td>Adam, lr=0.001</td></tr>
+    <tr><td>Epochs</td><td>10</td><td>10</td></tr>
+    <tr><td>Batch size</td><td>64</td><td>64</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Why dropout was selected as the experimental variable:</strong> Observing the baseline training logs revealed a diagnostic pattern: training loss continued to decrease steeply (0.4009 → 0.0535 over 10 epochs) while test accuracy plateaued between epochs 6–10 (91.53%–91.94%). This divergence between training loss and test accuracy is a classic signature of mild overfitting — the model memorizes training-specific patterns rather than generalizing. Dropout is the most direct intervention for this problem: during each forward pass in training, it randomly zeros 50% of FC1 activations, preventing neurons from co-adapting and forcing the network to learn more distributed, redundant representations (Srivastava et al., 2014). At inference time, dropout is disabled and all activations are scaled by (1 − p) to preserve expected output magnitude. The change is minimal and controlled — exactly one component differs between the two configurations.</p>
+
+<!-- ================================================================ -->
+<h2 id="results">5. Results and Interpretation</h2>
+
+<div class="stat-box">
+  <strong>Final Test Accuracy — 10,000-image test set</strong>
+  <table style="margin: 8px 0 0; font-size: 10pt; background: transparent;">
+    <thead><tr>
+      <th style="background:#dce8f4;">Model</th>
+      <th style="background:#dce8f4;">Final Train Loss</th>
+      <th style="background:#dce8f4;">Test Accuracy</th>
+    </tr></thead>
+    <tbody>
+      <tr><td>Baseline SimpleCNN</td><td>0.0535</td><td>91.55%</td></tr>
+      <tr><td><strong>CNN + Dropout</strong></td><td><strong>0.1358</strong></td><td><strong>92.85%</strong></td></tr>
+      <tr><td>Difference</td><td>—</td><td><strong>+1.30 pp</strong></td></tr>
+    </tbody>
+  </table>
+</div>
+
+<h3>5.1 Training Dynamics</h3>
+
+<p>The baseline training loss fell sharply from 0.4009 (epoch 1) to 0.0535 (epoch 10), while test accuracy grew from 89.24% to 91.55% but effectively plateaued after epoch 6. The gap between the near-zero training loss and the 91% test accuracy confirms mild overfitting: the model fits the training distribution almost perfectly but generalizes less effectively to unseen images.</p>
+
+<p>The CNN + Dropout training loss remained higher throughout (0.4752 → 0.1358), which is expected — dropout introduces stochasticity during training that prevents the training loss from reaching the same minimum as the unregularized model. However, test accuracy improved more steadily and reached 92.85%, demonstrating that the model generalizes better despite (or because of) the higher training loss. This is the textbook effect of dropout regularization: sacrificing training-set fit to gain generalization (Srivastava et al., 2014).</p>
+
+<h3>5.2 Per-Class Performance</h3>
+
+<table>
+  <thead><tr><th>Class</th><th>Baseline</th><th>CNN + Dropout</th><th>Δ</th></tr></thead>
+  <tbody>
+    <tr><td>T-shirt/top</td><td>79.9%</td><td>90.0%</td><td><strong>+10.1 pp</strong></td></tr>
+    <tr><td>Trouser</td><td>98.4%</td><td>98.5%</td><td>+0.1 pp</td></tr>
+    <tr><td>Pullover</td><td>83.4%</td><td>88.2%</td><td>+4.8 pp</td></tr>
+    <tr><td>Dress</td><td>93.4%</td><td>93.0%</td><td>−0.4 pp</td></tr>
+    <tr><td>Coat</td><td>93.1%</td><td>88.5%</td><td>−4.6 pp</td></tr>
+    <tr><td>Sandal</td><td>98.3%</td><td>98.8%</td><td>+0.5 pp</td></tr>
+    <tr><td>Shirt</td><td>77.7%</td><td>78.5%</td><td>+0.8 pp</td></tr>
+    <tr><td>Sneaker</td><td>94.8%</td><td>98.2%</td><td><strong>+3.4 pp</strong></td></tr>
+    <tr><td>Bag</td><td>98.1%</td><td>98.1%</td><td>0.0 pp</td></tr>
+    <tr><td>Ankle boot</td><td>98.4%</td><td>96.7%</td><td>−1.7 pp</td></tr>
+  </tbody>
+</table>
+
+<p>The dropout model shows substantial gains on T-shirt/top (+10.1 pp), Pullover (+4.8 pp), and Sneaker (+3.4 pp) — all classes that were difficult for the baseline. These improvements suggest that the baseline was memorizing specific training-set patterns for these classes rather than learning general features. The dropout model shows slight regressions on Coat (−4.6 pp) and Ankle boot (−1.7 pp), which may reflect that these classes required more precise feature memorization that dropout partially disrupts.</p>
+
+<h3>5.3 Hardest Classes — A Concrete Error Case</h3>
+
+<p>The <strong>Shirt</strong> class achieved only 77.7% (baseline) and 78.5% (dropout) — by far the worst per-class accuracy. Inspection of the confusion matrix reveals that Shirts are most often misclassified as T-shirts/tops, Coats, and Pullovers. This is a genuine challenge: at 28×28 grayscale resolution, a shirt and a T-shirt share very similar collar and sleeve structure. The visual difference — typically button placket, collar type, or fabric texture — is largely invisible at this resolution and in the absence of colour information. This is not a failure of the model design; it reflects a fundamental limitation of the input representation, as discussed in Section 6.</p>
+
+<!-- ================================================================ -->
+<h2 id="limitations">6. Limitations and Risks</h2>
+
+<p><strong>No validation split — test set used for monitoring:</strong> Training loss and test accuracy were tracked together at every epoch, effectively using the test set as a proxy for validation. Under strict machine learning discipline, the test set should be evaluated only once — at the end of training — after hyperparameter selection is complete. In this experiment, the test accuracy curve was visible during training, which could introduce implicit selection bias (e.g., stopping at 10 epochs partly because that is where test accuracy is satisfactory). A proper train/validation/test split (e.g., 80/10/10) should be used in future work.</p>
+
+<p><strong>Low-resolution grayscale input:</strong> 28×28 pixels with no colour information is severely limited for some categories. Shirt vs. T-shirt, Coat vs. Pullover, and Sneaker vs. Ankle boot are regularly confused by both models. This ambiguity is inherent to the representation, not resolvable by model architecture changes alone.</p>
+
+<p><strong>No data augmentation:</strong> The training set is used as-is. Random horizontal flips, small rotations, and random cropping — standard augmentation strategies — were not applied. These would increase effective training set diversity and likely further reduce overfitting, particularly for symmetric items like bags and shoes.</p>
+
+<p><strong>Single random seed:</strong> Results are reported for a single training run with <code>torch.manual_seed(42)</code>. The +1.30 pp improvement of CNN + Dropout over baseline may vary across random initializations. Multiple runs with averaged results would give a statistically reliable estimate of the effect size.</p>
+
+<!-- ================================================================ -->
+<h2 id="ethics">7. Ethical and Responsible Use</h2>
+
+<p><strong>Potential misuse — surveillance and consumer profiling:</strong> A model trained to classify clothing items from images could be applied to surveillance footage or social media images to profile individuals by clothing style, infer socioeconomic status, or track individuals across locations without consent. Fashion-MNIST is a clean benchmark dataset with no personal information, but the architectural pattern (CNN applied to clothing images) generalises directly to such applications. Deploying such a model in any context where individuals have not consented to having their clothing analysed would raise serious privacy and civil liberties concerns.</p>
+
+<p><strong>Bias in representation:</strong> Fashion-MNIST was curated from Zalando's European e-commerce catalogue. The clothing styles, cuts, and visual presentation reflect a specific geographic and commercial context. A model trained on this data would likely perform poorly on clothing from other cultural contexts (e.g., traditional garments from South or East Asia, African fashion). Deploying such a model as a general clothing classifier without awareness of this distributional bias could produce systematically inaccurate results for underrepresented styles.</p>
+
+<p><strong>Step proposed to reduce risk:</strong> Before any real-world deployment of a clothing classification model, a bias audit should be conducted on a geographically and culturally diverse test set. Model confidence scores (softmax probabilities) should be exposed to downstream systems so that uncertain predictions can be flagged for human review rather than acted upon automatically.</p>
+
+<!-- ================================================================ -->
+<h2 id="future">8. Future Improvements</h2>
+
+<ul>
+  <li><strong>Data augmentation:</strong> Random horizontal flips and small random crops would increase the effective diversity of the training set and are expected to further reduce overfitting, particularly for symmetric classes (bags, shoes).</li>
+  <li><strong>Proper train/validation/test split:</strong> Reserve 10% of the training set as a validation set for hyperparameter selection. Evaluate on the test set only once at the end of the full experiment.</li>
+  <li><strong>Batch normalization:</strong> Adding <code>nn.BatchNorm2d</code> after each convolutional activation would normalise feature maps across the batch, stabilise training gradients, and potentially allow a higher learning rate — often yielding faster convergence and better final accuracy than dropout alone.</li>
+  <li><strong>Deeper architecture:</strong> A third convolutional block (64→128 channels) with a corresponding FC layer increase may capture higher-level features that help distinguish difficult class pairs (Shirt vs. T-shirt).</li>
+  <li><strong>Multiple training runs:</strong> Report mean and standard deviation of test accuracy across 5 seeds to provide statistically reliable comparison between baseline and experimental configurations.</li>
+  <li><strong>Class-weighted loss:</strong> Although Fashion-MNIST is balanced overall, the Shirt class may benefit from a higher loss weight to increase model sensitivity to this difficult category.</li>
+</ul>
+
+<!-- ================================================================ -->
+<h2 id="references">9. References</h2>
+
+<div class="references">
+<ol>
+  <li>
+    Adhikari, N. K. J. (2022). <em>Reproducible data science with Python: An open learning resource</em>. ResearchGate. <a href="https://doi.org/10.13140/RG.2.2.22099.04641">https://doi.org/10.13140/RG.2.2.22099.04641</a>
+  </li>
+  <li>
+    LeCun, Y., Bottou, L., Bengio, Y., &amp; Haffner, P. (1998). Gradient-based learning applied to document recognition. <em>Proceedings of the IEEE</em>, <em>86</em>(11), 2278–2324. <a href="https://doi.org/10.1109/5.726791">https://doi.org/10.1109/5.726791</a>
+  </li>
+  <li>
+    Srivastava, N., Hinton, G., Krizhevsky, A., Sutskever, I., &amp; Salakhutdinov, R. (2014). Dropout: A simple way to prevent neural networks from overfitting. <em>Journal of Machine Learning Research</em>, <em>15</em>(56), 1929–1958. <a href="https://jmlr.org/papers/v15/srivastava14a.html">https://jmlr.org/papers/v15/srivastava14a.html</a>
+  </li>
+  <li>
+    Xiao, H., Rasul, K., &amp; Vollgraf, R. (2017). <em>Fashion-MNIST: A novel image dataset for benchmarking machine learning algorithms</em>. arXiv. <a href="https://arxiv.org/abs/1708.07747">https://arxiv.org/abs/1708.07747</a>
+  </li>
+</ol>
+</div>
+
+</body>
+</html>
